@@ -236,3 +236,249 @@ document.body.addEventListener("mouseout", function () {
 document.body.addEventListener("mouseover", function () {
   cursor.classList.remove("disabled");
 });
+
+
+// Minimal Gallery JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    const galleryItems = document.querySelectorAll('.minimal-gallery-item');
+    const modal = document.getElementById('minimalGalleryModal');
+    const modalImage = document.getElementById('minimalGalleryModalImage');
+    const closeBtn = document.getElementById('minimalGalleryClose');
+    const prevBtn = document.getElementById('minimalGalleryPrev');
+    const nextBtn = document.getElementById('minimalGalleryNext');
+    const modalBackdrop = document.querySelector('.minimal-gallery-modal-backdrop');
+    
+    let currentImageIndex = 0;
+    let imageElements = [];
+    
+    // Initialize gallery
+    initGallery();
+    
+    function initGallery() {
+        // Get all image elements
+        imageElements = Array.from(document.querySelectorAll('.minimal-gallery-image'));
+        
+        // Add click handlers to gallery items
+        galleryItems.forEach((item, index) => {
+            const imageWrapper = item.querySelector('.minimal-gallery-image-wrapper');
+            imageWrapper.addEventListener('click', () => openModal(index));
+        });
+        
+        // Add modal event listeners
+        closeBtn.addEventListener('click', closeModal);
+        modalBackdrop.addEventListener('click', closeModal);
+        prevBtn.addEventListener('click', showPrevImage);
+        nextBtn.addEventListener('click', showNextImage);
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', handleKeyboard);
+        
+        // Prevent context menu on images
+        imageElements.forEach(img => {
+            img.addEventListener('contextmenu', (e) => e.preventDefault());
+        });
+    }
+    
+    function openModal(index) {
+        currentImageIndex = index;
+        const img = imageElements[index];
+        
+        // Set modal image source
+        modalImage.src = img.src;
+        modalImage.alt = img.alt;
+        
+        // Show modal
+        modal.classList.add('minimal-gallery-active');
+        document.body.style.overflow = 'hidden';
+        
+        // Update navigation buttons
+        updateNavButtons();
+        
+        // Preload adjacent images
+        preloadAdjacentImages();
+    }
+    
+    function closeModal() {
+        modal.classList.remove('minimal-gallery-active');
+        document.body.style.overflow = 'auto';
+    }
+    
+    function showPrevImage() {
+        if (currentImageIndex > 0) {
+            currentImageIndex--;
+            updateModalImage();
+        }
+    }
+    
+    function showNextImage() {
+        if (currentImageIndex < imageElements.length - 1) {
+            currentImageIndex++;
+            updateModalImage();
+        }
+    }
+    
+    function updateModalImage() {
+        const img = imageElements[currentImageIndex];
+        
+        // Add fade effect
+        modalImage.style.opacity = '0.5';
+        
+        setTimeout(() => {
+            modalImage.src = img.src;
+            modalImage.alt = img.alt;
+            modalImage.style.opacity = '1';
+        }, 150);
+        
+        updateNavButtons();
+        preloadAdjacentImages();
+    }
+    
+    function updateNavButtons() {
+        // Update previous button
+        prevBtn.disabled = currentImageIndex === 0;
+        
+        // Update next button
+        nextBtn.disabled = currentImageIndex === imageElements.length - 1;
+    }
+    
+    function preloadAdjacentImages() {
+        // Preload previous image
+        if (currentImageIndex > 0) {
+            const prevImg = new Image();
+            prevImg.src = imageElements[currentImageIndex - 1].src;
+        }
+        
+        // Preload next image
+        if (currentImageIndex < imageElements.length - 1) {
+            const nextImg = new Image();
+            nextImg.src = imageElements[currentImageIndex + 1].src;
+        }
+    }
+    
+    function handleKeyboard(e) {
+        if (!modal.classList.contains('minimal-gallery-active')) return;
+        
+        switch(e.key) {
+            case 'Escape':
+                closeModal();
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                showPrevImage();
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                showNextImage();
+                break;
+        }
+    }
+    
+    // Handle image loading errors
+    imageElements.forEach((img, index) => {
+        img.addEventListener('error', function() {
+            console.warn(`Failed to load image: ${this.src}`);
+            // Hide the gallery item if image fails to load
+            const galleryItem = this.closest('.minimal-gallery-item');
+            if (galleryItem) {
+                galleryItem.style.display = 'none';
+            }
+        });
+        
+        // Add loading state
+        img.addEventListener('load', function() {
+            this.style.opacity = '1';
+        });
+        
+        // Set initial opacity for smooth loading
+        img.style.opacity = '0';
+        img.style.transition = 'opacity 0.3s ease';
+    });
+    
+    // Touch/swipe support for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    modal.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    });
+    
+    modal.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    });
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        const diff = touchStartX - touchEndX;
+        
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+                // Swipe left - next image
+                showNextImage();
+            } else {
+                // Swipe right - previous image
+                showPrevImage();
+            }
+        }
+    }
+    
+    // Auto-refresh gallery items if new images are added dynamically
+    function refreshGallery() {
+        const newGalleryItems = document.querySelectorAll('.minimal-gallery-item');
+        const newImageElements = Array.from(document.querySelectorAll('.minimal-gallery-image'));
+        
+        if (newImageElements.length !== imageElements.length) {
+            imageElements = newImageElements;
+            
+            // Add click handlers to new items
+            newGalleryItems.forEach((item, index) => {
+                const imageWrapper = item.querySelector('.minimal-gallery-image-wrapper');
+                const existingHandler = imageWrapper.onclick;
+                
+                if (!existingHandler) {
+                    imageWrapper.addEventListener('click', () => openModal(index));
+                }
+            });
+        }
+    }
+    
+    // Check for new images every 2 seconds (useful if images are added dynamically)
+    setInterval(refreshGallery, 2000);
+    
+    // Utility function to add new gallery item programmatically
+    window.addGalleryImage = function(imageSrc, altText) {
+        const galleryGrid = document.querySelector('.minimal-gallery-grid');
+        const newItem = document.createElement('div');
+        newItem.className = 'minimal-gallery-item';
+        
+        newItem.innerHTML = `
+            <div class="minimal-gallery-image-wrapper">
+                <img src="${imageSrc}" alt="${altText || 'Gallery Image'}" class="minimal-gallery-image">
+                <div class="minimal-gallery-overlay">
+                    <div class="minimal-gallery-zoom-icon">+</div>
+                </div>
+            </div>
+        `;
+        
+        galleryGrid.appendChild(newItem);
+        
+        // Refresh gallery to include new item
+        setTimeout(refreshGallery, 100);
+    };
+    
+    // Utility function to remove all gallery images (for dynamic loading)
+    window.clearGallery = function() {
+        const galleryGrid = document.querySelector('.minimal-gallery-grid');
+        galleryGrid.innerHTML = '';
+        imageElements = [];
+    };
+    
+    // Smooth scroll to gallery (if needed)
+    window.scrollToGallery = function() {
+        const gallerySection = document.querySelector('.minimal-gallery-section');
+        gallerySection.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start'
+        });
+    };
+});
